@@ -55,6 +55,7 @@ macro_rules! impl_pg_type_data {
             // with PostgreSQL.
             (25, "text", "textin",0,1009),
             (1301, "rw_int256", "rw_int256_in",0,0),
+            (1305, "rw_uint256", "rw_uint256_in",0,0),
             // Note: Here is only to avoid some components of psql from not being able to find relevant results, causing errors. We will not use it in the RW.
             $(
             ($oid_array, concat!("_", stringify!($name)), "array_in", $oid, 0),

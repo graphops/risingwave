@@ -175,6 +175,9 @@ pub enum DataType {
     #[display("rw_int256")]
     #[from_str(regex = "(?i)^rw_int256$")]
     Int256,
+    #[display("rw_uint256")]
+    #[from_str(regex = "(?i)^rw_uint256$")]
+    Uint256,
     #[display("{0}")]
     #[from_str(regex = "(?i)^(?P<0>.+)$")]
     Map(MapType),
@@ -201,6 +204,7 @@ impl TryFrom<DataTypeName> for DataType {
             DataTypeName::Int32 => Ok(DataType::Int32),
             DataTypeName::Int64 => Ok(DataType::Int64),
             DataTypeName::Int256 => Ok(DataType::Int256),
+            DataTypeName::Uint256 => Ok(DataType::Uint256),
             DataTypeName::Serial => Ok(DataType::Serial),
             DataTypeName::Decimal => Ok(DataType::Decimal),
             DataTypeName::Float32 => Ok(DataType::Float32),
@@ -268,6 +272,7 @@ impl From<&PbDataType> for DataType {
                 DataType::Map(MapType::from_entries(list_entries_type))
             }
             PbTypeName::Int256 => DataType::Int256,
+            PbTypeName::Uint256 => DataType::Uint256,
         }
     }
 }
@@ -294,6 +299,7 @@ impl From<DataTypeName> for PbTypeName {
             DataTypeName::Struct => PbTypeName::Struct,
             DataTypeName::List => PbTypeName::List,
             DataTypeName::Int256 => PbTypeName::Int256,
+            DataTypeName::Uint256 => PbTypeName::Uint256,
             DataTypeName::Map => PbTypeName::Map,
         }
     }
@@ -351,6 +357,7 @@ pub mod data_types {
                 | DataType::Jsonb
                 | DataType::Serial
                 | DataType::Int256
+                | DataType::Uint256
         };
     }
     pub use _simple_data_types as simple;
@@ -431,7 +438,8 @@ impl DataType {
             | DataType::Bytea
             | DataType::Jsonb
             | DataType::Serial
-            | DataType::Int256 => (),
+            | DataType::Int256
+            | DataType::Uint256 => (),
         }
         pb
     }

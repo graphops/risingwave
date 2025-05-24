@@ -48,6 +48,20 @@ impl Display for Int256Ref<'_> {
     }
 }
 
+/// A 256-bit unsigned integer.
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Default, Hash)]
+pub struct UInt256(pub(crate) Box<u256>);
+
+/// A reference to an `UInt256` value.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+pub struct UInt256Ref<'a>(pub &'a u256);
+
+impl Display for UInt256Ref<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.write(f)
+    }
+}
+
 macro_rules! impl_common_for_num256 {
     ($scalar:ident, $scalar_ref:ident < $gen:tt > , $inner:ty, $array_type:ident) => {
         impl Scalar for $scalar {
@@ -184,6 +198,7 @@ macro_rules! impl_common_for_num256 {
 }
 
 impl_common_for_num256!(Int256, Int256Ref<'a>, i256, Int256);
+impl_common_for_num256!(UInt256, UInt256Ref<'a>, u256, Uint256);
 
 impl Int256 {
     // `i256::str_from_hex` and `i256::str_from_prefixed` doesn't support uppercase "0X", so when it
@@ -227,6 +242,28 @@ impl Int256 {
     }
 }
 
+impl UInt256Ref<'_> {
+    pub fn memcmp_serialize(
+        &self,
+        serializer: &mut memcomparable::Serializer<impl bytes::BufMut>,
+    ) -> memcomparable::Result<()> {
+        let (hi, lo) = self.0.into_words();
+        (hi, lo).serialize(serializer)
+    }
+}
+
+impl UInt256 {
+    pub const MEMCMP_ENCODED_SIZE: usize = 32;
+
+    pub fn memcmp_deserialize(
+        deserializer: &mut memcomparable::Deserializer<impl Buf>,
+    ) -> memcomparable::Result<Self> {
+        let (hi, lo) = <(u128, u128)>::deserialize(deserializer)?;
+        let unsigned = u256::from_words(hi, lo);
+        Ok(UInt256::from(unsigned))
+    }
+}
+
 macro_rules! impl_convert_from {
     ($($t:ty),* $(,)?) => {$(
         impl From<$t> for Int256 {
@@ -239,6 +276,19 @@ macro_rules! impl_convert_from {
 }
 
 impl_convert_from!(i16, i32, i64);
+
+macro_rules! impl_convert_from_u {
+    ($($t:ty),* $(,)?) => {$(
+        impl From<$t> for UInt256 {
+            #[inline]
+            fn from(value: $t) -> Self {
+                Self(Box::new(u256::from(value)))
+            }
+        }
+    )*};
+}
+
+impl_convert_from_u!(u16, u32, u64, u128);
 
 impl<'a> From<Int256Ref<'a>> for F64 {
     fn from(value: Int256Ref<'a>) -> Self {
@@ -284,6 +334,11 @@ impl_checked_op!(CheckedSub, checked_sub, -, Sub, sub, Int256, Int256Ref<'a>);
 impl_checked_op!(CheckedMul, checked_mul, *, Mul, mul, Int256, Int256Ref<'a>);
 impl_checked_op!(CheckedDiv, checked_div, /, Div, div, Int256, Int256Ref<'a>);
 impl_checked_op!(CheckedRem, checked_rem, %, Rem, rem, Int256, Int256Ref<'a>);
+impl_checked_op!(CheckedAdd, checked_add, +, Add, add, UInt256, UInt256Ref<'a>);
+impl_checked_op!(CheckedSub, checked_sub, -, Sub, sub, UInt256, UInt256Ref<'a>);
+impl_checked_op!(CheckedMul, checked_mul, *, Mul, mul, UInt256, UInt256Ref<'a>);
+impl_checked_op!(CheckedDiv, checked_div, /, Div, div, UInt256, UInt256Ref<'a>);
+impl_checked_op!(CheckedRem, checked_rem, %, Rem, rem, UInt256, UInt256Ref<'a>);
 
 impl Neg for Int256 {
     type Output = Int256;
@@ -315,6 +370,30 @@ impl One for Int256 {
     }
 }
 
+impl Zero for UInt256 {
+    fn zero() -> Self {
+        UInt256::from(u256::ZERO)
+    }
+
+    fn is_zero(&self) -> bool {
+        *self.0 == u256::ZERO
+    }
+}
+
+impl One for UInt256 {
+    fn one() -> Self {
+        Self::from(u256::ONE)
+    }
+}
+
+impl Num for UInt256 {
+    type FromStrRadixErr = ParseIntError;
+
+    fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+        u256::from_str_radix(str, radix).map(Into::into)
+    }
+}
+
 impl Num for Int256 {
     type FromStrRadixErr = ParseIntError;
 
@@ -326,6 +405,12 @@ impl Num for Int256 {
 impl EstimateSize for Int256 {
     fn estimated_heap_size(&self) -> usize {
         mem::size_of::<i128>() * 2
+    }
+}
+
+impl EstimateSize for UInt256 {
+    fn estimated_heap_size(&self) -> usize {
+        mem::size_of::<u128>() * 2
     }
 }
 
