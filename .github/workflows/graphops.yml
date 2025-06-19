@@ -1,5 +1,6 @@
 # .github/workflows/graphops.yml
-# Trigger this workflow with: gh workflow run graphops.yml --ref graphops/ci-workflows-DO-NOT-MERGE -f ref=graphops/uint256 -f tag=uint256
+# Trigger this workflow with:
+# gh workflow run --repo graphops/risingwave graphops.yml -f ref=graphops/uint256 -f tag=uint256
 name: GraphOps - Build Container Image
 
 on:
@@ -17,6 +18,10 @@ on:
         description: "Image tag"
         required: false
         default: ""
+      cargo_profile:       # CARGO_PROFILE for build optimization
+        description: "Cargo profile (production, dev, etc.)"
+        required: false
+        default: "production"
 
 jobs:
   build:
@@ -54,13 +59,30 @@ jobs:
             TAG="$(echo "${GITHUB_SHA}" | cut -c1-8)"
           fi
 
+          # Add architecture suffix like docker.sh
+          ARCH="$(uname -m)"
+          TAG_WITH_ARCH="${TAG}-${ARCH}"
+
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG"     >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tag_with_arch=$TAG_WITH_ARCH" >> "$GITHUB_OUTPUT"
+          echo "arch=$ARCH" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./docker/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag_with_arch }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            CARGO_PROFILE=${{ inputs.cargo_profile }}
           provenance: false     # disable SBOM/provenance to speed things up
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/risingwave-build-cache:${{ steps.meta.outputs.arch }}
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/risingwave-build-cache:${{ steps.meta.outputs.arch }},mode=max
+
+      - name: Show built images
+        run: |
+          echo "--- docker images"
+          docker images
