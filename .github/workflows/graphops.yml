@@ -25,7 +25,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     permissions:              # needed for GHCR push with GITHUB_TOKEN
       contents: read
       packages: write
